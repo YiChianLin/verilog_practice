@@ -7,7 +7,7 @@ input  [7:0] number2;
 input  [7:0] number3;
 output [7:0] result; 
 
-reg cmp1, cmp2, result;
+reg[7:0] cmp1, cmp2, result;
 
 always @(select or number0 or number1 or number2 or number3) begin
 	// select = 0 choose maximun
