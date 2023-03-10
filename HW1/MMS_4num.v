@@ -1,3 +1,6 @@
+`ifdef MMS_4NUM_V
+`define MMS_4NUM_V
+
 module MMS_4num(result, select, number0, number1, number2, number3);
 
 input        select;
@@ -30,3 +33,5 @@ always @(select or cmp1 or cmp2) begin
 	end
 end
 endmodule
+
+`endif
