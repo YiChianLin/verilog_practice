@@ -102,14 +102,7 @@ always @(data or Currentstate or first_data_flag) begin
 				Nextstate = ST3;
 			end	
 		end
-		ST3 : begin
-			if (pop_time ^ input_data[0]) begin
-				Nextstate = ST0;
-			end
-			else begin
-				Nextstate = ST0;
-			end
-		end
+		ST3 : begin	Nextstate = ST0; end
 		default: begin Nextstate = ST0; end
 	endcase
 end
@@ -134,6 +127,7 @@ always @(Currentstate) begin
 	endcase
 end
 
+// reset
 always @(done) begin
 	first_data_flag <= 0;
 	sp <= 0;
