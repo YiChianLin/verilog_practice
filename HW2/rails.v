@@ -7,50 +7,67 @@ output       valid;
 output       result; 
 reg result, valid;
 
-// Finite state machine
-reg [1:0] Currentstate, Nextstate;
-reg [3:0] input_data[10:0];    // pattern array
-reg [3:0] stack[10:0];
-reg [3:0] sp; 				  // stack point
-reg [3:0] counter;			  // current time 
-reg [3:0] idx;				  // pattern_data
-reg [3:0] pop_time;		
-
-reg done;
-reg [3:0] i;
-/* state 
+/* Finite state machine : 
 ST0 : get all pattern number
 ST1 : pattern number > counter -> push to stack
 ST2 : pattern == top stack -> pop / sp = sp - 1
 ST3 : check the pattern correctly
 */
+reg done, first_data_flag;
+reg [1:0] Currentstate, Nextstate;
+reg [3:0] input_data[10:0];    // pattern array, input_data[0] : the number of pattern
+reg [3:0] stack[10:0];
+reg [3:0] sp; 				   // stack point
+reg [3:0] counter;			   // current time 
+reg [3:0] pattern_arr_idx;	  
+reg [3:0] pop_time;		
+reg [3:0] i;				   // for-loop 
+
 parameter [1:0] ST0 = 2'b00,
 				ST1 = 2'b01,
 				ST2 = 2'b10,
 				ST3 = 2'b11;
 
+// initial value
 initial begin
 	done = 0;
 	sp = 0;
 	counter = 0;
-	idx = 0;
+	pattern_arr_idx = 0;
 	pop_time = 0;
+	first_data_flag = 0;
 end
 
 // Sequential circuut
 always @(posedge clk or posedge reset) begin
+	// check the first input data
+	if (input_data[1] > 0) begin
+		first_data_flag = 0;
+	end
+	else if (input_data[0] > 0) begin
+		first_data_flag = 1;
+	end
+	else 
+		Currentstate <= Nextstate;
+
+	// reset signal
 	if (reset) begin
 		Currentstate <= ST0;
 	end
 	else
 		Currentstate <= Nextstate;
 end
+
 // Combination circuit for nextstate
-always @(data or Currentstate) begin
+always @(data or Currentstate or first_data_flag) begin
 	case (Currentstate)
 		ST0 : begin
 			input_data[counter] = data;
-			if (counter > input_data[0]) begin
+			// check the first input data
+			if (first_data_flag == 1) begin
+				Nextstate = ST0;
+			end
+			else if (counter > input_data[0]) begin
 				counter = 0;
 				Nextstate = ST1;
 			end
@@ -63,8 +80,8 @@ always @(data or Currentstate) begin
 				Nextstate = ST0;
 		end
 		ST1: begin
-			if (idx < (input_data[0] + 1)) begin
-				for (i = 0; input_data[idx] > counter; i = i + 1)begin
+			if (pattern_arr_idx < (input_data[0] + 1)) begin
+				for (i = 0; input_data[pattern_arr_idx] > counter; i = i + 1)begin
 					stack[sp] = counter + 1;
 					counter = counter + 1;
 					sp = sp + 1;
@@ -72,15 +89,14 @@ always @(data or Currentstate) begin
 				Nextstate = ST2;
 			end
 			else begin
-
 				Nextstate = ST2;
 			end
 		end
 		ST2 : begin
 			sp = sp - 1;  // top stack thing
-			if (input_data[idx] == stack[sp]) begin
+			if (input_data[pattern_arr_idx] == stack[sp]) begin
 				pop_time = pop_time + 1;
-				idx = idx + 1;
+				pattern_arr_idx = pattern_arr_idx + 1;
 				Nextstate = ST1;
 			end
 			else begin
@@ -88,7 +104,6 @@ always @(data or Currentstate) begin
 			end	
 		end
 		ST3 : begin
-			done = ~done;
 			if (pop_time ^ input_data[0]) begin
 				Nextstate = ST0;
 			end
@@ -107,6 +122,7 @@ always @(Currentstate) begin
 		ST1 : begin valid = 0; end
 		ST2 : begin valid = 0; end
 		ST3 : begin 
+			done = ~done;
 			valid = 1;
 			if (pop_time ^ input_data[0]) begin
 				result = 0;
@@ -120,11 +136,12 @@ always @(Currentstate) begin
 end
 
 always @(done) begin
+	first_data_flag <= 0;
 	sp <= 0;
 	counter <= 0;
-	idx <= 1;
+	pattern_arr_idx <= 1;
 	pop_time <= 0;
-	for(i=0; i < 11; i = i +1)begin
+	for(i=0; i < 11; i = i + 1)begin
       stack[i] <= 0;
 	  input_data[i] <= 0;
     end
