@@ -21,7 +21,7 @@ reg [3:0] sp; 				   // stack point
 reg [3:0] counter;			   // current time 
 reg [3:0] pattern_arr_idx;	  
 reg [3:0] pop_time;		
-reg [3:0] i;				   // for-loop 
+reg [3:0] i;				   // for-loop time to initial data
 
 parameter [1:0] ST0 = 2'b00,
 				ST1 = 2'b01,
@@ -81,9 +81,8 @@ always @(data or Currentstate or first_data_flag) begin
 		end
 		ST1: begin
 			if (pattern_arr_idx < (input_data[0] + 1)) begin
-				for (i = 0; input_data[pattern_arr_idx] > counter; i = i + 1)begin
+				for (; input_data[pattern_arr_idx] > counter; counter = counter + 1)begin
 					stack[sp] = counter + 1;
-					counter = counter + 1;
 					sp = sp + 1;
 				end
 				Nextstate = ST2;
