@@ -50,7 +50,7 @@ always @(posedge clk) begin
 		first_data_flag = 0;
 end
 
-// Sequential circuut
+// Sequential circuit
 always @(posedge clk or posedge reset) begin
 	if (reset) begin
 		Currentstate <= ST0;
