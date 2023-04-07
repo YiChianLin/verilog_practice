@@ -38,19 +38,20 @@ initial begin
 	first_data_flag = 0;
 end
 
-// Sequential circuut
-always @(posedge clk or posedge reset) begin
-	// check the first input data
+// check the first input data
+always @(posedge clk) begin
 	if (input_data[1] > 0) begin
 		first_data_flag = 0;
 	end
 	else if (input_data[0] > 0) begin
 		first_data_flag = 1;
-	end
+	end 
 	else 
-		Currentstate <= Nextstate;
+		first_data_flag = 0;
+end
 
-	// reset signal
+// Sequential circuut
+always @(posedge clk or posedge reset) begin
 	if (reset) begin
 		Currentstate <= ST0;
 	end
