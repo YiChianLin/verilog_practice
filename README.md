@@ -12,6 +12,15 @@
     * use modelsim instruction(make sure the modelsim was set in your PC's Environment Variables)
         * Add the path `C:\intelFPGA\20.1\modelsim_ase\win32aloem` and restart your device
 
+* Makefile to run your verilog code show the result without modelsim gui
+```
+make project="<project name>" top_m="<top module name>"
+```
+* with modelsim gui
+```
+make vsim project="<project name>" top_m="<top module name>"
+```
+
 * Modelsim instruction(use commander)
 Create your verilog work file 
 ```

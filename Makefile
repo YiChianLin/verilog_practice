@@ -15,5 +15,7 @@ all :
 
 # show modelsim in gui
 vsim : 
-	-@vsim $(top_module)
+	-@vlib work
+	-@vlog $(vfile)
+	-@vsim $(top_module_name)
 
