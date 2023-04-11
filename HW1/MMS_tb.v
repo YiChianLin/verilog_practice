@@ -1,9 +1,9 @@
 `timescale 10ns / 1ps
 `define CYCLE 10
-`define PATTERN_4num    "./test_data_4num.dat"         
-`define EXPECT_4num   "./golden_data_4num.dat" 
-`define PATTERN_8num    "./test_data_8num.dat"         
-`define EXPECT_8num   "./golden_data_8num.dat"    
+`define PATTERN_4num    "./HW1/test_data_4num.dat"         
+`define EXPECT_4num   "./HW1/golden_data_4num.dat" 
+`define PATTERN_8num    "./HW1/test_data_8num.dat"         
+`define EXPECT_8num   "./HW1/golden_data_8num.dat"    
 
 module MMS_tb;
 

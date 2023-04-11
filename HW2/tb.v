@@ -1,8 +1,8 @@
 `timescale 1ns/10ps
 `define CYCLE      50.0  
 `define End_CYCLE  1000000000
-`define PATTERN    "test_data_rails.dat"
-`define EXPECT     "golden_data_rails.dat"
+`define PATTERN    "./HW2/test_data_rails.dat"
+`define EXPECT     "./HW2/golden_data_rails.dat"
 
 module testfixture();
 parameter TEST_N_PAT = 100;
