@@ -1,18 +1,19 @@
 # your project folder name
-target_name := HW1
+project := HW1
 # top module
-top_module_name := MMS_tb
+top_m := MMS_tb
 
-vfile = $(target_name)/*.v
-top_module = work.$(top_module_name)
+vfile = $(project)/*.v
+top_module_name = work.$(top_m)
 
 # show the result in cmd
+# In cmd shell : > make project="<project name>" top_m="<top module name>"
 all :
 	-@vlib work
 	-@vlog $(vfile)
-	-@vsim -c -do "run -all" $(top_module)
+	-@vsim -c -do "run -all" $(top_module_name)
 
-# show modelsim gui
+# show modelsim in gui
 vsim : 
 	-@vsim $(top_module)
 
