@@ -17,16 +17,12 @@ output reg [6:0] result;
 */
 
 // state define
-reg [3:0] Currentstate, Nextstate;
-localparam DATA_IN = 4'd0;
-localparam CHECK_DATA = 4'd1;
-localparam POSTFIX_POP = 4'd2;
-localparam POSTFIX_PUSH = 4'd3;
-localparam COMPARE_PR = 4'd4;
-localparam CHECK_STACK_EMPTY = 4'd5;
-localparam CALCULATE= 4'd6;
-localparam CAL_RESULT = 4'd7;
-localparam RESET = 4'd8;
+reg [2:0] Currentstate, Nextstate;
+localparam DATA_IN = 3'd0;
+localparam CHECK_DATA = 3'd1;
+localparam CHECK_STACK_EMPTY = 3'd5;
+localparam CALCULATE= 3'd6;
+localparam RESET = 3'd7;
 
 // variable 
 reg [4:0] i; // for-loop
@@ -62,33 +58,14 @@ always @(*) begin
             end
         end
         CHECK_DATA : begin
-            if ((data_arr_idx == data_num)) begin 
+            if ((data_arr_idx + 1) == data_num) begin 
                 Nextstate <= CHECK_STACK_EMPTY; 
             end
             else begin
-                case (data_arr[data_arr_idx]) 
-                    7'b001_0000 : begin Nextstate <= POSTFIX_PUSH; end   // (
-                    7'b001_0001 : begin Nextstate <= POSTFIX_POP; end    // ) 
-                    7'b001_1000 : begin Nextstate <= COMPARE_PR; end     // * 
-                    7'b001_0100 : begin Nextstate <= COMPARE_PR; end     // + 
-                    7'b001_0101 : begin Nextstate <= COMPARE_PR; end     // - 
-                    default: begin Nextstate <= POSTFIX_POP; end
-                endcase
+                Nextstate <= CHECK_DATA;
             end
         end
-        POSTFIX_POP : begin 
-            if (stack[stack_index_minus_one] == 7'b001_0000) begin Nextstate <= CHECK_DATA; end
-            else begin Nextstate <= CHECK_DATA; end
-        end
 
-        POSTFIX_PUSH : begin Nextstate <= CHECK_DATA; end
-
-        COMPARE_PR : begin
-            if ((stack_index == 4'b0) | ((data_arr[data_arr_idx] & 7'b001_1100) > (stack[stack_index_minus_one] & 7'b001_1100))) begin
-                Nextstate <= POSTFIX_PUSH;
-            end
-            else begin Nextstate <= POSTFIX_POP; end
-        end   
         CHECK_STACK_EMPTY : begin      
             if (stack_index > 4'b0) begin
                 Nextstate <= CHECK_STACK_EMPTY;
@@ -103,10 +80,10 @@ always @(*) begin
                 Nextstate <= CALCULATE;
             end
             else begin
-                Nextstate <= CAL_RESULT;
+                Nextstate <= RESET;
             end
         end
-        CAL_RESULT : begin Nextstate <= RESET; end
+        RESET : begin Nextstate <= DATA_IN; end
 
         default : begin Nextstate <= DATA_IN; end
     endcase
@@ -169,13 +146,16 @@ always @(posedge clk or posedge rst) begin
                     end
                 endcase
             end
-            CHECK_DATA : begin end
-            
-            POSTFIX_POP : begin
+            CHECK_DATA : begin
                 // pop directly or pop from stack
                 if ((data_arr[data_arr_idx] < 7'b001_0000)) begin
                     postfix_result[postfix_idx] <= data_arr[data_arr_idx];
                     postfix_idx <= postfix_idx + 1;
+                    data_arr_idx <= data_arr_idx + 1;
+                end
+                else if ((stack_index == 4'b0) | data_arr[data_arr_idx] == 7'b001_0000 | ((data_arr[data_arr_idx] & 7'b001_1100) > (stack[stack_index_minus_one] & 7'b001_1100))) begin
+                    stack[stack_index] <= data_arr[data_arr_idx];
+                    stack_index <= stack_index + 1;
                     data_arr_idx <= data_arr_idx + 1;
                 end
                 else if (stack[stack_index_minus_one] == 7'b001_0000) begin
@@ -191,17 +171,14 @@ always @(posedge clk or posedge rst) begin
                     postfix_idx <= postfix_idx + 1;
                 end
             end
-
-            POSTFIX_PUSH : begin
-                stack[stack_index] <= data_arr[data_arr_idx];
-                stack_index <= stack_index + 1;
-                data_arr_idx <= data_arr_idx + 1;
-            end
-
-            COMPARE_PR : begin  end
-
-            CHECK_STACK_EMPTY : begin 
-                if(stack_index > 4'b0)begin
+            
+            CHECK_STACK_EMPTY : begin
+                if (stack[stack_index_minus_one] == 7'b001_0000) begin
+                    postfix_result[postfix_idx] <= stack[stack_index_minus_one];
+                    stack[stack_index_minus_one] <= 0;
+                    stack_index <= stack_index - 1; 
+                end 
+                else if (stack_index > 4'b0) begin
                     postfix_result[postfix_idx] <= stack[stack_index_minus_one];
                     stack[stack_index_minus_one] <= 0;
                     stack_index <= stack_index - 1;
@@ -236,10 +213,10 @@ always @(posedge clk or posedge rst) begin
                         end
                     endcase
                 end
-            end
-            CAL_RESULT : begin
-                valid <= 1;
-                result <= stack[0];
+                else begin
+                    valid <= 1;
+                    result <= stack[0];
+                end
             end
 
             RESET : begin
