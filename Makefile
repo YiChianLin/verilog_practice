@@ -12,12 +12,12 @@ top_module_name = work.$(top_m)
 # In cmd shell : > make project="<project name>" top_m="<top module name>"
 all :
 	-@vlib work
-	-@vlog $(vfile) $(vfile)
+	-@vlog $(vfile) $(svfile)
 	-@vsim -c -do "run -all" $(top_module_name)
 
 # show modelsim in gui
 vsim : 
 	-@vlib work
-	-@vlog $(vfile) $(vfile)
+	-@vlog $(vfile) $(svfile)
 	-@vsim $(top_module_name)
 
