@@ -6,3 +6,6 @@ work
 *.mti
 *.mpf
 *.vstf
+*.sdo
+*.csd
+*.vo
