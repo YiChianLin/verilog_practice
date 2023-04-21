@@ -129,7 +129,9 @@ always @(posedge clk or posedge rst) begin
     else begin 
         case (Currentstate)
             DATA_IN : begin 
-                if (ascii_in == 8'b0011_1101) data_arr_idx <= 0; 
+                if (ascii_in == 8'b0011_1101) begin 
+                    data_arr_idx <= 0;
+                end 
                 else  begin 
                     data_arr_idx <= data_arr_idx + 1;
                     pop_time <= pop_time + 1;
@@ -163,7 +165,7 @@ always @(posedge clk or posedge rst) begin
                     end
                     default: begin 
                         // number 0~15
-                        data_arr[data_arr_idx] <= {0, (ascii_in[6] & 1'b1), 2'b00, (ascii_in[4] ^ 1'b1)} + ascii_in[3:0];
+                        data_arr[data_arr_idx] <= {3'b000, (ascii_in[6] & 1'b1), 2'b00, (ascii_in[4] ^ 1'b1)} + ascii_in[3:0];
                     end
                 endcase
             end
@@ -215,25 +217,24 @@ always @(posedge clk or posedge rst) begin
                 // number -> push // operator -> pop and calculate
                 if(data_arr_idx < pop_time) begin
                     data_arr_idx <= data_arr_idx + 1;
-                    if (postfix_result[data_arr_idx] < 7'b001_0000) begin
-                        stack[stack_index] <= postfix_result[data_arr_idx];
-                        stack_index <= stack_index + 1;
-                    end
-                    else begin
-                        stack_index <= stack_index - 1;
-                        case (postfix_result[data_arr_idx])
-                            7'b001_1000 : begin
-                                stack[stack_index_minus_two] <= stack[stack_index_minus_two] * stack[stack_index_minus_one];
-                            end
-                            7'b001_0100 : begin
-                                stack[stack_index_minus_two] <= stack[stack_index_minus_two] + stack[stack_index_minus_one];
-                            end
-                            7'b001_0101 : begin
-                                stack[stack_index_minus_two] <= stack[stack_index_minus_two] - stack[stack_index_minus_one];
-                            end
-                            default: begin  end
-                        endcase
-                    end
+                    case (postfix_result[data_arr_idx])
+                        7'b001_1000 : begin
+                            stack[stack_index_minus_two] <= stack[stack_index_minus_two] * stack[stack_index_minus_one];
+                            stack_index <= stack_index - 1;
+                        end
+                        7'b001_0100 : begin
+                            stack[stack_index_minus_two] <= stack[stack_index_minus_two] + stack[stack_index_minus_one];
+                            stack_index <= stack_index - 1;
+                        end
+                        7'b001_0101 : begin
+                            stack[stack_index_minus_two] <= stack[stack_index_minus_two] - stack[stack_index_minus_one];
+                            stack_index <= stack_index - 1;
+                        end
+                        default: begin  
+                            stack[stack_index] <= postfix_result[data_arr_idx];
+                            stack_index <= stack_index + 1;
+                        end
+                    endcase
                 end
             end
             CAL_RESULT : begin
@@ -242,7 +243,7 @@ always @(posedge clk or posedge rst) begin
             end
 
             RESET : begin
-                for(i = 0; i < 7'b001_0000; i = i + 1) begin 
+                for(i = 0; i < 5'b1_0000; i = i + 1) begin 
                     data_arr[i] <= 7'b000_0000; 
                     stack[i] <= 7'b000_0000;
                     postfix_result[i] <= 7'b000_0000;
@@ -256,6 +257,8 @@ always @(posedge clk or posedge rst) begin
                     pop_time <= 4'b0000;
                     data_num <= 4'b0000;
             end
+
+            default : begin end // do nothing
         endcase
     end
 
