@@ -28,7 +28,6 @@ reg [4:0] i; // for-loop
 reg [6:0] data_arr[15:0];
 reg [3:0] data_arr_idx;
 reg [6:0] stack[15:0];  // first bit 1 present the operator
-reg [6:0] postfix_result[15:0]; 
 reg [3:0] postfix_idx;
 reg [3:0] stack_index;
 reg [3:0] pop_time, data_num;
@@ -89,12 +88,6 @@ end
 
 always @(posedge clk or posedge rst) begin
     if(rst)begin
-        for(i = 0; i < 5'b1_0000 ; i = i + 1) begin 
-            data_arr[i] <= 7'b000_0000; 
-            stack[i] <= 7'b000_0000;
-            postfix_result[i] <= 7'b000_0000;
-        end
-
         stack_index <= 4'b0000;
         postfix_idx <= 4'b0000;
         data_arr_idx <= 4'b0000;
@@ -105,24 +98,20 @@ always @(posedge clk or posedge rst) begin
         case (Currentstate)
             DATA_IN : begin 
                 valid <= 1'b0;
-
-                if (ascii_in[6:0] == 7'b011_1101) begin 
-                    data_arr_idx <= 0;
-                end 
-                else  begin 
-                    data_arr_idx <= data_arr_idx + 1;
-                    pop_time <= pop_time + 1;
-                    data_num <= data_num + 1;
-                end
-
                 if (ascii_in[6:0] == 7'b011_1101) begin
                     data_arr_idx <= 0; 
                 end
                 else if(ascii_in[6:0] < 7'b011_0000) begin
                     data_arr[data_arr_idx] <= ascii_in[6:0];
+                    data_arr_idx <= data_arr_idx + 1;
+                    pop_time <= pop_time + 1;
+                    data_num <= data_num + 1;
                 end
                 else begin
                     data_arr[data_arr_idx] <= {3'b000, (ascii_in[6] & 1'b1), 2'b00, (ascii_in[4] ^ 1'b1)} + ascii_in[3:0];
+                    data_arr_idx <= data_arr_idx + 1;
+                    pop_time <= pop_time + 1;
+                    data_num <= data_num + 1;
                 end
                         
             end
@@ -130,7 +119,7 @@ always @(posedge clk or posedge rst) begin
                 // pop directly or pop from stack
                 // 只有第一個 if 跟數字有關
                 if ((data_arr[data_arr_idx] < 7'b001_0000)) begin
-                    postfix_result[postfix_idx] <= data_arr[data_arr_idx];
+                    data_arr[postfix_idx] <= data_arr[data_arr_idx];
                     postfix_idx <= postfix_idx + 1;
                     data_arr_idx <= data_arr_idx + 1;
                 end
@@ -146,7 +135,7 @@ always @(posedge clk or posedge rst) begin
                     pop_time <= pop_time - 2;  // () - 2
                 end
                 else begin
-                    postfix_result[postfix_idx] <= stack[stack_index_minus_one];
+                    data_arr[postfix_idx] <= stack[stack_index_minus_one];
                     stack_index <= stack_index - 1;
                     postfix_idx <= postfix_idx + 1;
                 end
@@ -157,11 +146,15 @@ always @(posedge clk or posedge rst) begin
                 if (stack[stack_index_minus_one] != 7'b010_1000) begin
                     postfix_idx <= postfix_idx + 1;
                 end
+                else if (stack[stack_index_minus_one] == 7'b010_1000) begin
+                    pop_time <= pop_time - 2;
+                end
                 
                 if (stack_index > 4'b0) begin
-                    postfix_result[postfix_idx] <= stack[stack_index_minus_one];
+                    data_arr[postfix_idx] <= stack[stack_index_minus_one];
                     stack_index <= stack_index - 1;
                 end 
+                
             end
 
             CALCULATE : begin
@@ -169,7 +162,7 @@ always @(posedge clk or posedge rst) begin
                 if (valid == 0) begin
                     if(data_arr_idx < pop_time) begin
                         data_arr_idx <= data_arr_idx + 1;
-                        case (postfix_result[data_arr_idx])
+                        case (data_arr[data_arr_idx])
                             7'b010_1010 : begin
                                 stack[stack_index_minus_two] <= stack[stack_index_minus_two] * stack[stack_index_minus_one];
                                 stack_index <= stack_index - 1;
@@ -183,7 +176,7 @@ always @(posedge clk or posedge rst) begin
                                 stack_index <= stack_index - 1;
                             end
                             default: begin  
-                                stack[stack_index] <= postfix_result[data_arr_idx];
+                                stack[stack_index] <= data_arr[data_arr_idx];
                                 stack_index <= stack_index + 1;
                             end
                         endcase
@@ -193,13 +186,7 @@ always @(posedge clk or posedge rst) begin
                         result <= stack[0];
                     end
                 end
-                else begin
-                    for(i = 0; i < 5'b1_0000; i = i + 1) begin 
-                        data_arr[i] <= 7'b000_0000; 
-                        stack[i] <= 7'b000_0000;
-                        postfix_result[i] <= 7'b000_0000;
-                    end
-                    
+                else begin                    
                     // array index
                     stack_index <= 4'b0000;
                     postfix_idx <= 4'b0000;
