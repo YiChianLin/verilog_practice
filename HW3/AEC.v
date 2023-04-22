@@ -128,7 +128,7 @@ always @(posedge clk or posedge rst) begin
                     postfix_idx <= postfix_idx + 1;
                     data_arr_idx <= data_arr_idx + 1;
                 end
-                else if ((stack_index == 4'b0) | data_arr[data_arr_idx] == 7'b010_1000 | 
+                else if ((stack_index == 4'b0) | data_arr[data_arr_idx][2:0] == 3'b000 | 
                 ({data_arr[data_arr_idx][2:0] == 3'b010, data_arr[data_arr_idx][2:0] > 3'b001} > {stack[stack_index_minus_one][2:0] == 3'b010, stack[stack_index_minus_one][2:0] > 3'b001})) begin
                     stack[stack_index] <= data_arr[data_arr_idx];
                     stack_index <= stack_index + 1;
