@@ -88,6 +88,11 @@ end
 
 always @(posedge clk or posedge rst) begin
     if(rst)begin
+        for(i = 0; i < 5'b1_0000 ; i = i + 1) begin 
+            data_arr[i] <= 7'b000_0000; 
+            stack[i] <= 7'b000_0000;
+        end
+
         stack_index <= 4'b0000;
         postfix_idx <= 4'b0000;
         data_arr_idx <= 4'b0000;
@@ -186,7 +191,12 @@ always @(posedge clk or posedge rst) begin
                         result <= stack[0];
                     end
                 end
-                else begin                    
+                else begin
+                    for(i = 0; i < 5'b1_0000; i = i + 1) begin 
+                        data_arr[i] <= 7'b000_0000; 
+                        stack[i] <= 7'b000_0000;
+                    end
+                    
                     // array index
                     stack_index <= 4'b0000;
                     postfix_idx <= 4'b0000;
