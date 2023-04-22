@@ -105,6 +105,7 @@ always @(posedge clk or posedge rst) begin
         case (Currentstate)
             DATA_IN : begin 
                 valid <= 1'b0;
+
                 if (ascii_in[6:0] == 7'b011_1101) begin 
                     data_arr_idx <= 0;
                 end 
@@ -114,50 +115,32 @@ always @(posedge clk or posedge rst) begin
                     data_num <= data_num + 1;
                 end
 
-                case (ascii_in[6:0])
-                    7'b011_1101 : begin 
-                        // '='
-                        data_arr_idx <= 0; 
-                    end  
-                    7'b010_1000 : begin 
-                        // '('
-                        data_arr[data_arr_idx] <= 7'b001_0000;
-                    end
-                    7'b010_1001 : begin 
-                        // ')'
-                        data_arr[data_arr_idx] <= 7'b001_0001;
-                    end
-                    7'b010_1010 : begin 
-                        // '*'
-                        data_arr[data_arr_idx] <= 7'b001_1000;
-                    end
-                    7'b010_1011 : begin 
-                        // '+'
-                        data_arr[data_arr_idx] <= 7'b001_0100;
-                    end
-                    7'b010_1101 : begin 
-                        // '-'
-                        data_arr[data_arr_idx] <= 7'b001_0101;
-                    end
-                    default: begin 
-                        // number 0~15
-                        data_arr[data_arr_idx] <= {3'b000, (ascii_in[6] & 1'b1), 2'b00, (ascii_in[4] ^ 1'b1)} + ascii_in[3:0];
-                    end
-                endcase
+                if (ascii_in[6:0] == 7'b011_1101) begin
+                    data_arr_idx <= 0; 
+                end
+                else if(ascii_in[6:0] < 7'b011_0000) begin
+                    data_arr[data_arr_idx] <= ascii_in[6:0];
+                end
+                else begin
+                    data_arr[data_arr_idx] <= {3'b000, (ascii_in[6] & 1'b1), 2'b00, (ascii_in[4] ^ 1'b1)} + ascii_in[3:0];
+                end
+                        
             end
             CHECK_DATA : begin
                 // pop directly or pop from stack
+                // 只有第一個 if 跟數字有關
                 if ((data_arr[data_arr_idx] < 7'b001_0000)) begin
                     postfix_result[postfix_idx] <= data_arr[data_arr_idx];
                     postfix_idx <= postfix_idx + 1;
                     data_arr_idx <= data_arr_idx + 1;
                 end
-                else if ((stack_index == 4'b0) | data_arr[data_arr_idx] == 7'b001_0000 | ((data_arr[data_arr_idx] & 7'b001_1100) > (stack[stack_index_minus_one] & 7'b001_1100))) begin
+                else if ((stack_index == 4'b0) | data_arr[data_arr_idx] == 7'b010_1000 | 
+                ({data_arr[data_arr_idx] == 7'b010_1010, data_arr[data_arr_idx] > 7'b010_1001} > {stack[stack_index_minus_one] == 7'b010_1010, stack[stack_index_minus_one] > 7'b010_1001})) begin
                     stack[stack_index] <= data_arr[data_arr_idx];
                     stack_index <= stack_index + 1;
                     data_arr_idx <= data_arr_idx + 1;
                 end
-                else if (stack[stack_index_minus_one] == 7'b001_0000) begin
+                else if (stack[stack_index_minus_one] == 7'b010_1000) begin
                     stack_index <= stack_index - 1;
                     data_arr_idx <= data_arr_idx + 1;
                     pop_time <= pop_time - 2;  // () - 2
@@ -171,7 +154,7 @@ always @(posedge clk or posedge rst) begin
             
             CHECK_STACK_EMPTY : begin
                 data_arr_idx <= 0;
-                if (stack[stack_index_minus_one] != 7'b001_0000) begin
+                if (stack[stack_index_minus_one] != 7'b010_1000) begin
                     postfix_idx <= postfix_idx + 1;
                 end
                 
@@ -187,15 +170,15 @@ always @(posedge clk or posedge rst) begin
                     if(data_arr_idx < pop_time) begin
                         data_arr_idx <= data_arr_idx + 1;
                         case (postfix_result[data_arr_idx])
-                            7'b001_1000 : begin
+                            7'b010_1010 : begin
                                 stack[stack_index_minus_two] <= stack[stack_index_minus_two] * stack[stack_index_minus_one];
                                 stack_index <= stack_index - 1;
                             end
-                            7'b001_0100 : begin
+                            7'b010_1011 : begin
                                 stack[stack_index_minus_two] <= stack[stack_index_minus_two] + stack[stack_index_minus_one];
                                 stack_index <= stack_index - 1;
                             end
-                            7'b001_0101 : begin
+                            7'b010_1101 : begin
                                 stack[stack_index_minus_two] <= stack[stack_index_minus_two] - stack[stack_index_minus_one];
                                 stack_index <= stack_index - 1;
                             end
