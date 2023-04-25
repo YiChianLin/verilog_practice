@@ -30,13 +30,13 @@ localparam CALCULATE= 2'd3;
 reg [4:0] i; // for-loop
 reg [6:0] data_arr[15:0];  // the input data array and store the postfix result
 reg [3:0] data_arr_idx;    
-reg [6:0] stack[15:0];     // stack for infix to postfix and calculate
+reg [6:0] stack[7:0];     // stack for infix to postfix and calculate
 reg [3:0] postfix_idx;     // the index for postfix to data array
-reg [3:0] stack_index;
+reg [2:0] stack_index;
 reg [3:0] pop_time, data_num;   // calculate the calculate time and the total data number(if encounter the parentheses)
 
-wire [3:0] stack_index_minus_one = stack_index - 4'd1;
-wire [3:0] stack_index_minus_two = stack_index - 4'd2;
+wire [2:0] stack_index_minus_one = stack_index - 4'd1;
+wire [2:0] stack_index_minus_two = stack_index - 4'd2;
 
 // sequential circuit
 always @(posedge clk) begin
@@ -69,7 +69,7 @@ always @(*) begin
         end
         // pop all the stack data
         CHECK_STACK_EMPTY : begin      
-            if (stack_index > 4'b0) begin
+            if (stack_index > 3'b0) begin
                 Nextstate <= CHECK_STACK_EMPTY;
             end
             else begin
@@ -95,10 +95,15 @@ always @(posedge clk or posedge rst) begin
         // reset
         for(i = 0; i < 5'b1_0000 ; i = i + 1) begin 
             data_arr[i] <= 7'b000_0000; 
+            // stack[i] <= 7'b000_0000;
+        end
+        for(i = 0; i < 4'b1000 ; i = i + 1) begin 
+            // data_arr[i] <= 7'b000_0000; 
             stack[i] <= 7'b000_0000;
         end
+        
 
-        stack_index <= 4'b0000;
+        stack_index <= 3'b000;
         postfix_idx <= 4'b0000;
         data_arr_idx <= 4'b0000;
         pop_time <= 4'b0000;
@@ -135,7 +140,7 @@ always @(posedge clk or posedge rst) begin
                     postfix_idx <= postfix_idx + 1;
                     data_arr_idx <= data_arr_idx + 1;
                 end
-                else if ((stack_index == 4'b0) | data_arr[data_arr_idx][2:0] == 3'b000 | 
+                else if ((stack_index == 3'b0) | data_arr[data_arr_idx][2:0] == 3'b000 | 
                 ({data_arr[data_arr_idx][2:0] == 3'b010, data_arr[data_arr_idx][2:0] > 3'b001} > {stack[stack_index_minus_one][2:0] == 3'b010, stack[stack_index_minus_one][2:0] > 3'b001})) begin
                     // In this stage the data just remain '(' ')' '*' '+' '-' decide the push situation
                     // 1. if stack is empty push the data in stack
@@ -178,7 +183,7 @@ always @(posedge clk or posedge rst) begin
                 end
                 
                 // check the stack whether empty
-                if (stack_index > 4'b0) begin
+                if (stack_index > 3'b0) begin
                     data_arr[postfix_idx] <= stack[stack_index_minus_one];
                     stack_index <= stack_index - 1;
                 end   
@@ -222,11 +227,15 @@ always @(posedge clk or posedge rst) begin
                     // reset 
                     for(i = 0; i < 5'b1_0000; i = i + 1) begin 
                         data_arr[i] <= 7'b000_0000; 
+                        // stack[i] <= 7'b000_0000;
+                    end
+                     
+                    for(i = 0; i < 4'b1000; i = i + 1) begin 
+                        // data_arr[i] <= 7'b000_0000; 
                         stack[i] <= 7'b000_0000;
                     end
-                    
                     // array index
-                    stack_index <= 4'b0000;
+                    stack_index <= 3'b000;
                     postfix_idx <= 4'b0000;
                     data_arr_idx <= 4'b0000;
                     // some counter
