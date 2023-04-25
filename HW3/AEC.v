@@ -17,14 +17,16 @@ output reg [6:0] result;
  * CHECK_STACK_EMPTY:if check all input data, check the stack is empty
  * CALCULATE:use postfix result to calculate, when complete the process
  * output the result and reset
+ * RESET:reset the signal
  */
 
 // state define
-reg [1:0] Currentstate, Nextstate;
-localparam DATA_IN = 2'd0;
-localparam CHECK_DATA = 2'd1;
-localparam CHECK_STACK_EMPTY = 2'd2;
-localparam CALCULATE= 2'd3;
+reg [2:0] Currentstate, Nextstate;
+localparam DATA_IN = 3'd0;
+localparam CHECK_DATA = 3'd1;
+localparam CHECK_STACK_EMPTY = 3'd2;
+localparam CALCULATE= 3'd3;
+localparam RESET= 3'd4;
 
 // variable 
 reg [4:0] i; // for-loop
@@ -43,8 +45,9 @@ always @(posedge clk) begin
     if (rst) begin
 		Currentstate <= DATA_IN;
 	end
-	else
-		Currentstate <= Nextstate;
+	else begin
+        Currentstate <= Nextstate;
+    end
 end
 
 // nextstate conbination
@@ -58,6 +61,7 @@ always @(*) begin
                 Nextstate <= DATA_IN;
             end
         end
+
         CHECK_DATA : begin
             // if completely run all data
             if ((data_arr_idx + 1) == data_num) begin 
@@ -67,6 +71,7 @@ always @(*) begin
                 Nextstate <= CHECK_DATA;
             end
         end
+
         // pop all the stack data
         CHECK_STACK_EMPTY : begin      
             if (stack_index > 3'b0) begin
@@ -76,15 +81,18 @@ always @(*) begin
                 Nextstate <= CALCULATE;
             end
         end
+
         // calculate the result
         CALCULATE : begin       
-            if ((data_arr_idx < pop_time) | (valid == 0)) begin
+            if ((data_arr_idx < pop_time)) begin
                 Nextstate <= CALCULATE;
             end
             else begin
-                Nextstate <= DATA_IN;
+                Nextstate <= RESET;
             end
         end
+
+        RESET : begin Nextstate <= DATA_IN; end
 
         default : begin Nextstate <= DATA_IN; end
     endcase
@@ -95,13 +103,11 @@ always @(posedge clk or posedge rst) begin
         // reset
         for(i = 0; i < 5'b1_0000 ; i = i + 1) begin 
             data_arr[i] <= 7'b000_0000; 
-            // stack[i] <= 7'b000_0000;
         end
+
         for(i = 0; i < 4'b1000 ; i = i + 1) begin 
-            // data_arr[i] <= 7'b000_0000; 
             stack[i] <= 7'b000_0000;
         end
-        
 
         stack_index <= 3'b000;
         postfix_idx <= 4'b0000;
@@ -130,9 +136,9 @@ always @(posedge clk or posedge rst) begin
                     data_arr_idx <= data_arr_idx + 1;
                     pop_time <= pop_time + 1;
                     data_num <= data_num + 1;
-                end
-                        
+                end       
             end
+
             CHECK_DATA : begin
                 // pop the number
                 if ((data_arr[data_arr_idx] < 7'b001_0000)) begin
@@ -141,7 +147,8 @@ always @(posedge clk or posedge rst) begin
                     data_arr_idx <= data_arr_idx + 1;
                 end
                 else if ((stack_index == 3'b0) | data_arr[data_arr_idx][2:0] == 3'b000 | 
-                ({data_arr[data_arr_idx][2:0] == 3'b010, data_arr[data_arr_idx][2:0] > 3'b001} > {stack[stack_index_minus_one][2:0] == 3'b010, stack[stack_index_minus_one][2:0] > 3'b001})) begin
+                ({data_arr[data_arr_idx][2:0] == 3'b010, data_arr[data_arr_idx][2:0] > 3'b001} > 
+                 {stack[stack_index_minus_one][2:0] == 3'b010, stack[stack_index_minus_one][2:0] > 3'b001})) begin
                     // In this stage the data just remain '(' ')' '*' '+' '-' decide the push situation
                     // 1. if stack is empty push the data in stack
                     // 2. if the data is '(' push
@@ -190,64 +197,60 @@ always @(posedge clk or posedge rst) begin
             end
 
             CALCULATE : begin
-                // number -> push // operator -> pop and calculate
-                if (valid == 0) begin
-                    if(data_arr_idx < pop_time) begin
-                        data_arr_idx <= data_arr_idx + 1;
-                        case (data_arr[data_arr_idx])
-                            // operator '*'
-                            7'b010_1010 : begin
-                                stack[stack_index_minus_two] <= stack[stack_index_minus_two] * stack[stack_index_minus_one];
-                                stack_index <= stack_index - 1;
-                            end
-                            // operator '+'
-                            7'b010_1011 : begin
-                                stack[stack_index_minus_two] <= stack[stack_index_minus_two] + stack[stack_index_minus_one];
-                                stack_index <= stack_index - 1;
-                            end
-                            // operator '-'
-                            7'b010_1101 : begin
-                                stack[stack_index_minus_two] <= stack[stack_index_minus_two] - stack[stack_index_minus_one];
-                                stack_index <= stack_index - 1;
-                            end
-                            default: begin  
-                                // if the data if number push in the stack
-                                stack[stack_index] <= data_arr[data_arr_idx];
-                                stack_index <= stack_index + 1;
-                            end
-                        endcase
-                    end
-                    else begin
-                        // output the result
-                        valid <= 1;
-                        result <= stack[0];
-                    end
+            // number -> push // operator -> pop and calculate
+            // if (valid == 0) begin
+                if(data_arr_idx < pop_time) begin
+                    data_arr_idx <= data_arr_idx + 1;
+                    case (data_arr[data_arr_idx])
+                        // operator '*'
+                        7'b010_1010 : begin
+                            stack[stack_index_minus_two] <= stack[stack_index_minus_two] * stack[stack_index_minus_one];
+                            stack_index <= stack_index - 1;
+                        end
+                        // operator '+'
+                        7'b010_1011 : begin
+                            stack[stack_index_minus_two] <= stack[stack_index_minus_two] + stack[stack_index_minus_one];
+                            stack_index <= stack_index - 1;
+                        end
+                        // operator '-'
+                        7'b010_1101 : begin
+                            stack[stack_index_minus_two] <= stack[stack_index_minus_two] - stack[stack_index_minus_one];
+                            stack_index <= stack_index - 1;
+                        end
+                        default: begin  
+                            // if the data if number push in the stack
+                            stack[stack_index] <= data_arr[data_arr_idx];
+                            stack_index <= stack_index + 1;
+                        end
+                    endcase
                 end
                 else begin
-                    // reset 
-                    for(i = 0; i < 5'b1_0000; i = i + 1) begin 
-                        data_arr[i] <= 7'b000_0000; 
-                        // stack[i] <= 7'b000_0000;
-                    end
-                     
-                    for(i = 0; i < 4'b1000; i = i + 1) begin 
-                        // data_arr[i] <= 7'b000_0000; 
-                        stack[i] <= 7'b000_0000;
-                    end
-                    // array index
-                    stack_index <= 3'b000;
-                    postfix_idx <= 4'b0000;
-                    data_arr_idx <= 4'b0000;
-                    // some counter
-                    pop_time <= 4'b0000;
-                    data_num <= 4'b0000;
+                    // output the result
+                    valid <= 1;
+                    result <= stack[0];
                 end
+            end
+
+            RESET : begin
+                // reset 
+                for(i = 0; i < 5'b1_0000; i = i + 1) begin 
+                    data_arr[i] <= 7'b000_0000; 
+                end
+                    
+                for(i = 0; i < 4'b1000; i = i + 1) begin 
+                    stack[i] <= 7'b000_0000;
+                end
+                // array index
+                stack_index <= 3'b000;
+                postfix_idx <= 4'b0000;
+                data_arr_idx <= 4'b0000;
+                // some counter
+                pop_time <= 4'b0000;
+                data_num <= 4'b0000;
             end
 
             default : begin end // do nothing
         endcase
     end
-
 end
-
 endmodule
