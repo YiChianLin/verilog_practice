@@ -34,7 +34,7 @@ localparam RESET = 3'd7;
 // parameter BIT_DATA = 19;
 reg [4:0] i;    // for-loop index
 reg [19:0] array_2x2 [3:0];
-reg [19:0] sum_conv;
+reg [12:0] sum_conv;
 reg [11:0] image_mem_idx;
 reg signed [12:0] tmp_data;
 reg [3:0] counter_for_9;
@@ -117,7 +117,7 @@ always @(posedge clk) begin
 		counter_for_9 <= 4'd0;
 		counter_for_4 <= 4'd0;
 		image_mem_idx <= 12'd0;
-		sum_conv <= 20'd0;
+		sum_conv <= 13'd0;  // convolution summation
 		busy <= 0;  // need to initialize
 		
 	end
@@ -131,11 +131,12 @@ always @(posedge clk) begin
 			
 			DATA_IN : begin
 				// get data
+				// input the address of image memory
 				iaddr <= image_mem_idx;
-				tmp_data <= idata;
 				image_mem_idx <= image_mem_idx + 1;
 			end
 			CONVOLUTION : begin
+				image_mem_idx <= image_mem_idx + 1; // next memory
 				tmp_data <= idata;
 				counter_for_9 <= counter_for_9 + 1;
 			end
