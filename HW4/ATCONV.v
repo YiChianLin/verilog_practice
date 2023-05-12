@@ -35,7 +35,7 @@ reg [12:0] sum_conv;				 // convolution summation
 
 // memory idx
 reg [11:0] image_mem_idx;   // max : 4095
-reg [10:0]  layer1_mem_idx;  // max : 1023
+reg [10:0] layer1_mem_idx;  // max : 1023
 reg [11:0] current_pixel; 
 
 
@@ -50,9 +50,6 @@ reg [12:0] bias;
 
 // maxpooling tmp reg
 reg [12:0] cmp1, cmp2, max_data;
-
-// flag
-reg flag, flag2;
 
 initial begin
 	filter_shift[0] <= 3'd0; // 1      1/1  2^(0)
@@ -70,15 +67,21 @@ initial begin
 	next_mem_offset[1] <=  12'd63;
 	next_mem_offset[2] <=  12'd1;
 	next_mem_offset[3] <=  12'hFC1; // -63
+	counter_for_8 <= 4'd0;
+	counter_for_4 <= 2'd0;
+	current_pixel <= 12'd0;
+	layer1_mem_idx <= 11'd0;
+	sum_conv <= 13'd0;  	// convolution summation
+	busy <= 0;  			// need to initialize
+	csel <= 0;
 end
 
 // Atrous Convolution
-always @(flag) begin
+always @(counter_for_8 or counter_for_4 or cwr) begin
 	case (counter_for_8)
 		0 : begin
-		// do nothing
-		end 
-
+			image_mem_idx <= current_pixel;
+		end
 		1 : begin
 			if (current_pixel < 12'd128) begin
 				image_mem_idx <= current_pixel - (current_pixel & 12'd64) - {current_pixel[5:0] > 1, current_pixel[5:0] == 1};
@@ -219,28 +222,16 @@ always @(*) begin
 		RESULT : begin
 			Nextstate <= CHECK_IMG_RD;	
 		end
-
 		default: begin Nextstate <= CHECK_IMG_RD; end 
 	endcase
-	
 end
 
 // Conbination circuit
 always @(posedge clk) begin
 	if (reset) begin
-		for (i = 0; i < 3'd4; i = i + 1) begin
-			maxpooling_4_data[i] <= 13'd0;
-		end
-		counter_for_8 <= 4'd0;
-		counter_for_4 <= 2'd0;
-		image_mem_idx <= 12'd0;
-		current_pixel <= 12'd0;
-		layer1_mem_idx <= 12'd0;
-		sum_conv <= 13'd0;  	// convolution summation
-		busy <= 0;  			// need to initialize
-		csel <= 0;
-		flag <= 0;
-		flag2 <= 0;
+		// for (i = 0; i < 3'd4; i = i + 1) begin
+		// 	maxpooling_4_data[i] <= 13'd0;
+		// end	
 	end
 	else begin
 		case (Currentstate) 
@@ -271,13 +262,12 @@ always @(posedge clk) begin
 				end
 
 				// next kernel index
-				counter_for_8 <= counter_for_8 + 1;		
-				
 				if (counter_for_8 == 8) begin
 					counter_for_8 <= 4'd0;
 				end
-
-				flag <= ~flag;
+				else begin
+					counter_for_8 <= counter_for_8 + 1;
+				end
 			end
 
 			WRITE_RELU_LAYER0 : begin
@@ -296,13 +286,9 @@ always @(posedge clk) begin
 					maxpooling_4_data[counter_for_4] <= sum_conv + bias;
 				end
 
-
-				// control signal 
-				flag <= ~flag;
-
 				// next memory
 				current_pixel <= current_pixel + next_mem_offset[counter_for_4]; // + ((layer1_mem_idx[4:0] == 31) << 6);
-				image_mem_idx <= current_pixel + next_mem_offset[counter_for_4]; // + ((layer1_mem_idx[4:0] == 31) << 6);
+				// image_mem_idx <= current_pixel + next_mem_offset[counter_for_4]; // + ((layer1_mem_idx[4:0] == 31) << 6);
 				// when write into Layer0, reset the counter and sum
 				 
 				sum_conv <= 13'd0;
@@ -316,7 +302,6 @@ always @(posedge clk) begin
 				cwr <= 0;
 				// when write into Layer1, reset the counter
 				counter_for_4 <= 2'd0; 
-				flag2 <= ~flag2;
 			end
 
 			WRITE_LAYER1 : begin
@@ -334,7 +319,7 @@ always @(posedge clk) begin
 				layer1_mem_idx <= layer1_mem_idx + 1; 
 
 				current_pixel <= current_pixel + ((layer1_mem_idx[4:0] == 31) << 6);
-				image_mem_idx <= current_pixel + ((layer1_mem_idx[4:0] == 31) << 6);
+				// image_mem_idx <= current_pixel + ((layer1_mem_idx[4:0] == 31) << 6);
 			end
 
 			RESULT : begin
@@ -349,7 +334,7 @@ always @(posedge clk) begin
 end
 
 // for maxpooling 4 input maximum selected
-always @(flag2) begin
+always @(counter_for_4) begin
 	if (maxpooling_4_data[0] < maxpooling_4_data[1]) begin
 		cmp1 <= maxpooling_4_data[1];
 	end
@@ -358,7 +343,7 @@ always @(flag2) begin
 	end
 end
 
-always @(flag2) begin
+always @(counter_for_4) begin
 	if (maxpooling_4_data[2] < maxpooling_4_data[3]) begin
 		cmp2 <= maxpooling_4_data[3];
 	end
