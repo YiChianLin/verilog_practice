@@ -1,6 +1,6 @@
 `timescale 1ns/10ps
 `define CYCLE      50          	  // you should not alter the cycle period (T.A. would test your ATCONV.v with cycle period == 50)
-`define End_CYCLE  1000000              // Modify cycle times once your design need more cycle times!
+`define End_CYCLE  100000000              // Modify cycle times once your design need more cycle times!
 `define IMG_DATA "./data/img.dat"
 `define LAYER0_GOLDEN "./data/layer0_golden.dat"
 `define LAYER1_GOLDEN "./data/layer1_golden.dat"
