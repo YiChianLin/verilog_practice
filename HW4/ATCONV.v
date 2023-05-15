@@ -49,10 +49,9 @@ reg [11:0] next_mem_offset[3:0];
 reg [12:0] bias;
 
 // maxpooling tmp reg
-reg [12:0] cmp1, cmp2, max_data;
+wire [12:0] cmp1, cmp2, max_data;
 
-reg flag;
-
+// reg flag;
 initial begin
 	filter_shift[0] <= 3'd0; // 1      1/1  2^(0)
 	filter_shift[1] <= 3'd4; // 0.0625 1/16 2^(-4)
@@ -76,11 +75,10 @@ initial begin
 	sum_conv <= 13'd0;  	// convolution summation
 	busy <= 0;  			// need to initialize
 	csel <= 0;
-	flag <= 0;
 end
 
 // Atrous Convolution
-always @(counter_for_8 or counter_for_4 or cwr or flag) begin
+always @(counter_for_8 or current_pixel) begin
 	case (counter_for_8)
 		0 : begin
 			image_mem_idx <= current_pixel;
@@ -156,7 +154,7 @@ always @(counter_for_8 or counter_for_4 or cwr or flag) begin
 				image_mem_idx <= current_pixel + 12'd128 + {current_pixel[5:0] < 12'd62, current_pixel[5:0] == 12'd62};
 			end
 		end
-		default: begin /* do nothing */ end 
+		default: begin image_mem_idx <= current_pixel; end 
 	endcase
 end
 
@@ -246,11 +244,10 @@ always @(posedge clk) begin
 			
 			GET_DATA_FROM_MEM : begin
 				// reset the write signal
-				cwr <= 0;
+				// cwr <= 0;
 
 				// input the address of image memory to get data
 				iaddr <= image_mem_idx;
-				flag <= ~flag;
 				counter_for_8 <= 4'd1;
 			end
 
@@ -268,11 +265,9 @@ always @(posedge clk) begin
 					sum_conv <= sum_conv + idata;
 				end
 				
-
 				// next kernel index
 				if (counter_for_8 == 9) begin
 					counter_for_8 <= 4'd0;
-					current_pixel <= current_pixel + next_mem_offset[counter_for_4];
 				end
 				else begin
 					counter_for_8 <= counter_for_8 + 1;
@@ -281,10 +276,11 @@ always @(posedge clk) begin
 
 			WRITE_RELU_LAYER0 : begin
 				// write memory signal
-
 				cwr <= 1;  // write enable
 				csel <= 0; // write in Layer0
-				caddr_wr <= current_pixel - next_mem_offset[counter_for_4]; // Layer0 addr
+				caddr_wr <= current_pixel;// - next_mem_offset[counter_for_4]; // Layer0 addr
+
+				current_pixel <= current_pixel + next_mem_offset[counter_for_4];
 
 				// Add BIAS and RELU -> write in Layer0
 				if ((sum_conv + bias) & 13'b1_0000_0000_0000) begin
@@ -297,17 +293,14 @@ always @(posedge clk) begin
 				// reset summation
 				sum_conv <= 13'd0;
 
-				// next memory
-				// current_pixel <= current_pixel + next_mem_offset[counter_for_4]; // + ((layer1_mem_idx[4:0] == 31) << 6);				
+				// the counter of maxpooling block
 				counter_for_4 <= counter_for_4 + 1;
-				// counter_for_8 <= 4'd0;
 			end
 
 			MAXPOOLING : begin
 				// reset the write signal
 				cwr <= 0;
-				// when write into Layer1, reset the counter
-				counter_for_4 <= 2'd0; 
+				current_pixel <= current_pixel + ((layer1_mem_idx[4:0] == 31) << 6);
 			end
 
 			WRITE_LAYER1 : begin
@@ -323,8 +316,6 @@ always @(posedge clk) begin
 					cdata_wr <= max_data;
 				end
 				layer1_mem_idx <= layer1_mem_idx + 1; 
-
-				current_pixel <= current_pixel + ((layer1_mem_idx[4:0] == 31) << 6);
 			end
 
 			RESULT : begin
@@ -332,38 +323,15 @@ always @(posedge clk) begin
 			end
 
 			default: begin
-			// do nothing
+				// do nothing
 			end 
 		endcase
 	end
 end
 
-// for maxpooling 4 input maximum selected
-always @(counter_for_4) begin
-	if (maxpooling_4_data[0] < maxpooling_4_data[1]) begin
-		cmp1 <= maxpooling_4_data[1];
-	end
-	else begin
-		cmp1 <= maxpooling_4_data[0];
-	end
-end
-
-always @(counter_for_4) begin
-	if (maxpooling_4_data[2] < maxpooling_4_data[3]) begin
-		cmp2 <= maxpooling_4_data[3];
-	end
-	else begin
-		cmp2 <= maxpooling_4_data[2];
-	end
-end
-
-always @(*) begin
-	if (cmp1 < cmp2) begin
-		max_data <= cmp2;
-	end
-	else begin
-		max_data <= cmp1;
-	end
-end
+// combination circuit of maxpooling (ref by HW1 four numbers input maximum)
+assign cmp1 = maxpooling_4_data[0] < maxpooling_4_data[1] ? maxpooling_4_data[1] : maxpooling_4_data[0];
+assign cmp2 = maxpooling_4_data[2] < maxpooling_4_data[3] ? maxpooling_4_data[3] : maxpooling_4_data[2];
+assign max_data = cmp1 < cmp2 ? cmp2 : cmp1;
 
 endmodule
