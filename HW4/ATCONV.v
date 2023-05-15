@@ -25,9 +25,8 @@ localparam CHECK_IMG_RD = 3'd0;
 localparam GET_DATA_FROM_MEM = 3'd1;
 localparam CONVOLUTION = 3'd2;
 localparam WRITE_RELU_LAYER0= 3'd3;
-localparam MAXPOOLING = 3'd4;
-localparam WRITE_LAYER1 = 3'd5;
-localparam RESULT = 3'd6;
+localparam WRITE_LAYER1 = 3'd4;
+localparam RESULT = 3'd5;
 
 reg [2:0] i;    // for-loop index
 reg [12:0] maxpooling_4_data [3:0];  // the block of maxpooling in 4 numbers
@@ -51,7 +50,6 @@ reg [12:0] bias;
 // maxpooling tmp reg
 wire [12:0] cmp1, cmp2, max_data;
 
-// reg flag;
 initial begin
 	filter_shift[0] <= 3'd0; // 1      1/1  2^(0)
 	filter_shift[1] <= 3'd4; // 0.0625 1/16 2^(-4)
@@ -73,8 +71,8 @@ initial begin
 	current_pixel <= 12'd0;
 	layer1_mem_idx <= 11'd0;
 	sum_conv <= 13'd0;  	// convolution summation
-	busy <= 0;  			// need to initialize
-	csel <= 0;
+	busy <= 1'd0;  			// need to initialize
+	csel <= 1'd0;
 end
 
 // Atrous Convolution
@@ -83,17 +81,18 @@ always @(counter_for_8 or current_pixel) begin
 		0 : begin
 			image_mem_idx <= current_pixel;
 		end
+		
 		1 : begin
 			if (current_pixel < 12'd128) begin
-				image_mem_idx <= current_pixel - (current_pixel & 12'd64) - {current_pixel[5:0] > 1, current_pixel[5:0] == 1};
+				image_mem_idx <= current_pixel - (current_pixel & 12'd64) - {current_pixel[5:0] > 6'd1, current_pixel[5:0] == 6'd1};
 			end
 			else begin
-				image_mem_idx <= current_pixel - 12'd128 - {current_pixel[5:0] > 1, current_pixel[5:0] == 1};
+				image_mem_idx <= current_pixel - 12'd128 - {current_pixel[5:0] > 6'd1, current_pixel[5:0] == 6'd1};
 			end
 		end
 
 		2 : begin
-			if (current_pixel < 128) begin
+			if (current_pixel < 12'd128) begin
 				image_mem_idx <= current_pixel - (current_pixel[6] << 6);
 			end
 			else begin
@@ -102,11 +101,11 @@ always @(counter_for_8 or current_pixel) begin
 		end
 
 		3 : begin
-			if (current_pixel < 12'd128) begin
-				image_mem_idx <= current_pixel - (current_pixel & 12'd64) + {current_pixel[5:0] < 12'd62, current_pixel[5:0] == 12'd62};
+			if (current_pixel[11:7]) begin
+				image_mem_idx <= current_pixel - 12'd128 + {current_pixel[5:0] < 12'd62, current_pixel[5:0] == 12'd62};
 			end
 			else begin
-				image_mem_idx <= current_pixel - 12'd128 + {current_pixel[5:0] < 12'd62, current_pixel[5:0] == 12'd62};
+				image_mem_idx <= current_pixel - (current_pixel & 12'd64) + {current_pixel[5:0] < 12'd62, current_pixel[5:0] == 12'd62};
 			end
 		end
 
@@ -121,7 +120,7 @@ always @(counter_for_8 or current_pixel) begin
 		
 		5 : begin
 			if (current_pixel[5:0] > 6'd61) begin
-				image_mem_idx <= current_pixel + (current_pixel[0] ^ 1);
+				image_mem_idx <= current_pixel + (current_pixel[0] ^ 1'd1);
 			end
 			else begin
 				image_mem_idx <= current_pixel + 12'd2;
@@ -130,16 +129,16 @@ always @(counter_for_8 or current_pixel) begin
 
 		6 : begin
 			if (current_pixel > 12'd3967) begin
-				image_mem_idx <= current_pixel + ((current_pixel[6] ^ 1) << 6) - {current_pixel[5:0] > 1, current_pixel[5:0] == 1};
+				image_mem_idx <= current_pixel + ((current_pixel[6] ^ 1'd1) << 6) - {current_pixel[5:0] > 6'd1, current_pixel[5:0] == 6'd1};
 			end
 			else begin
-				image_mem_idx <= current_pixel + 12'd128 - {current_pixel[5:0] > 1, current_pixel[5:0] == 1};
+				image_mem_idx <= current_pixel + 12'd128 - {current_pixel[5:0] > 6'd1, current_pixel[5:0] == 6'd1};
 			end
 		end
 
 		7 : begin
 			if (current_pixel > 12'd3967) begin
-				image_mem_idx <= current_pixel + ((current_pixel[6] ^ 1) << 6);
+				image_mem_idx <= current_pixel + ((current_pixel[6] ^ 1'd1) << 6);
 			end
 			else begin
 				image_mem_idx <= current_pixel + 12'd128;
@@ -148,7 +147,7 @@ always @(counter_for_8 or current_pixel) begin
 
 		8 : begin
 			if (current_pixel > 12'd3967) begin
-				image_mem_idx <= current_pixel + ((current_pixel[6] ^ 1) << 6) + {current_pixel[5:0] < 12'd62, current_pixel[5:0] == 12'd62};
+				image_mem_idx <= current_pixel + ((current_pixel[6] ^ 1'd1) << 6) + {current_pixel[5:0] < 12'd62, current_pixel[5:0] == 12'd62};
 			end
 			else begin
 				image_mem_idx <= current_pixel + 12'd128 + {current_pixel[5:0] < 12'd62, current_pixel[5:0] == 12'd62};
@@ -192,7 +191,7 @@ always @(*) begin
 		end
 
 		CONVOLUTION : begin
-			// if run all index(0~8), convolution done
+			// if run all index(0~8) kernel filter, write into layer 0
 			if (counter_for_8 < 4'd9) begin
 				Nextstate <= CONVOLUTION;
 			end
@@ -202,17 +201,13 @@ always @(*) begin
 		end
 
 		WRITE_RELU_LAYER0 : begin
-			// when write 
+			// when write into layer 0 four times, do maxpooling and write into layer1 
 			if (counter_for_4 < 3'd3) begin
 				Nextstate <= GET_DATA_FROM_MEM;
 			end
 			else begin
-				Nextstate <= MAXPOOLING;
+				Nextstate <= WRITE_LAYER1;
 			end
-		end
-
-		MAXPOOLING : begin
-			Nextstate <= WRITE_LAYER1;
 		end
 
 		WRITE_LAYER1 : begin
@@ -229,7 +224,8 @@ end
 // Conbination circuit
 always @(posedge clk) begin
 	if (reset) begin
-		for (i = 0; i < 3'd4; i = i + 1) begin
+		// initilize the maxpooling data array
+		for (i = 3'd0; i < 3'd4; i = i + 3'd1) begin
 			maxpooling_4_data[i] <= 13'd0;
 		end	
 	end
@@ -238,16 +234,18 @@ always @(posedge clk) begin
 			CHECK_IMG_RD : begin
 				// When ready pull up the busy signal
 				if (ready) begin
-					busy <= 1;
+					busy <= 1'd1;
+				end 
+				else begin
+					busy <= 1'd0;
 				end
 			end 
 			
 			GET_DATA_FROM_MEM : begin
-				// reset the write signal
-				// cwr <= 0;
-
 				// input the address of image memory to get data
 				iaddr <= image_mem_idx;
+
+				// the second kernel filter
 				counter_for_8 <= 4'd1;
 			end
 
@@ -257,55 +255,52 @@ always @(posedge clk) begin
 
 				// Convolution for each pixel
 				// If the shift kernel number(time 1) == 0
-				if (filter_shift[counter_for_8 - 1]) begin
-					sum_conv <= sum_conv + (~(idata >> filter_shift[counter_for_8-1]) + 1);
+				if (filter_shift[counter_for_8 - 4'd1]) begin
+					sum_conv <= sum_conv + (~(idata >> filter_shift[counter_for_8 - 4'd1]) + 13'd1);
 				end 
 				else begin
 					// if not shift, representing the middle of number
 					sum_conv <= sum_conv + idata;
 				end
 				
-				// next kernel index
-				if (counter_for_8 == 9) begin
+				if (counter_for_8 == 4'd9) begin
+					// reset the counter
 					counter_for_8 <= 4'd0;
 				end
 				else begin
-					counter_for_8 <= counter_for_8 + 1;
+					// next kernel filter
+					counter_for_8 <= counter_for_8 + 4'd1;
 				end
 			end
 
 			WRITE_RELU_LAYER0 : begin
 				// write memory signal
-				cwr <= 1;  // write enable
-				csel <= 0; // write in Layer0
-				caddr_wr <= current_pixel;// - next_mem_offset[counter_for_4]; // Layer0 addr
+				cwr <= 1'd1;  // write enable
+				csel <= 1'd0; // write in Layer0
+				caddr_wr <= current_pixel; // Layer0 addr
 
+				// the next pixel of maxpooling block
 				current_pixel <= current_pixel + next_mem_offset[counter_for_4];
 
 				// Add BIAS and RELU -> write in Layer0
 				if ((sum_conv + bias) & 13'b1_0000_0000_0000) begin
-					cdata_wr <= 0;
-					maxpooling_4_data[counter_for_4] <= 0;
+					cdata_wr <= 13'd0;
+					maxpooling_4_data[counter_for_4] <= 13'd0;
 				end else begin
 					cdata_wr <= sum_conv + bias;
 					maxpooling_4_data[counter_for_4] <= sum_conv + bias;
 				end
+				
 				// reset summation
 				sum_conv <= 13'd0;
 
 				// the counter of maxpooling block
-				counter_for_4 <= counter_for_4 + 1;
-			end
-
-			MAXPOOLING : begin
-				// reset the write signal
-				cwr <= 0;
-				current_pixel <= current_pixel + ((layer1_mem_idx[4:0] == 31) << 6);
+				counter_for_4 <= counter_for_4 + 2'd1;
 			end
 
 			WRITE_LAYER1 : begin
-				cwr <= 1;  // write enable
-				csel <= 1; // write in Layer1
+				// write memory signal
+				csel <= 1'd1; // write in Layer1
 				caddr_wr <= layer1_mem_idx; // Layer0 addr
 
 				// Round up
@@ -315,11 +310,17 @@ always @(posedge clk) begin
 				else begin
 					cdata_wr <= max_data;
 				end
-				layer1_mem_idx <= layer1_mem_idx + 1; 
+
+				// Layer 1 next memory
+				layer1_mem_idx <= layer1_mem_idx + 11'd1; 
+
+				// change the row of maxpooling block
+				current_pixel <= current_pixel + ((layer1_mem_idx[4:0] == 5'd31) << 6);
 			end
 
 			RESULT : begin
-				busy <= 0;
+				// check the answer
+				busy <= 1'd0;
 			end
 
 			default: begin
