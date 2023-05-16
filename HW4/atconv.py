@@ -30,10 +30,9 @@ np.savetxt('./data/img.dat', gray_data, fmt='%s')
 
 ### Layer 0 golden data ###
 # Convolution setting 
-# ref : https://pytorch.org/docs/stable/generated/torch.nn.ReplicationPad2d.html
-replicationPad_m = torch.nn.ReplicationPad2d(padding = 2)
 # ref : https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html
-conv_m = torch.nn.Conv2d(in_channels = 1, out_channels = 1, kernel_size = (3, 3), dilation = (2, 2), padding=(0,0), groups=1, bias=True, stride=(1,1))
+conv_m = torch.nn.Conv2d(in_channels = 1, out_channels = 1, kernel_size = (3, 3), dilation = (2, 2), groups=1, bias=True, stride=(1,1)
+                         , padding=(2,2), padding_mode='replicate')
 # ref : https://pytorch.org/docs/stable/generated/torch.nn.ReLU.html
 relu_m = torch.nn.ReLU()
 # ref : https://pytorch.org/docs/stable/generated/torch.nn.MaxPool2d.html
@@ -48,11 +47,10 @@ conv_m.weight.data = torch.FloatTensor(
 conv_m.bias.data = torch.FloatTensor([-0.75])
 
 # modify the input data format
-gray_img = torch.FloatTensor(gray_img)
-padding_img = replicationPad_m(gray_img.reshape(1, 1, 64, 64))
+gray_img = torch.FloatTensor(gray_img.reshape(1, 1, 64, 64))
 
 # use module to calculate
-output = conv_m(padding_img)
+output = conv_m(gray_img)
 output = relu_m(output)
 output_plt = output.data.squeeze().numpy()
 output_plt = cv2.cvtColor(output.data.squeeze().numpy(), cv2.COLOR_BGR2RGB)
