@@ -28,7 +28,6 @@ localparam WRITE_RELU_LAYER0= 3'd3;
 localparam WRITE_LAYER1 = 3'd4;
 localparam RESULT = 3'd5;
 
-reg [1:0] i;    // for-loop index
 reg [12:0] maxpooling_4_data [3:0];  // the block of maxpooling in 4 numbers
 reg [12:0] sum_conv;				 // convolution summation
 
@@ -36,7 +35,6 @@ reg [12:0] sum_conv;				 // convolution summation
 reg [11:0] image_mem_idx;   // max : 4095
 reg [11:0] layer1_mem_idx;  // max : 1023
 reg [11:0] current_pixel; 
-
 
 // counter idx
 reg [3:0] counter_for_8;  // for convolution 9 numbers element 
@@ -148,15 +146,12 @@ always @(*) begin
 
 		GET_DATA_FROM_MEM : begin
 			// if calculate all pixel, end the process
-			// if (layer1_mem_idx < 12'd1024) begin
-			// 	Nextstate <= CONVOLUTION;
-			// end
-			// else begin
-			// 	Nextstate <= RESULT;
-			// end
-
-			// not recommend, but it would reduce the total logic element
-			Nextstate <= {layer1_mem_idx[10], 2'b10}; 
+			if (layer1_mem_idx < 12'd1024) begin
+				Nextstate <= CONVOLUTION;
+			end
+			else begin
+				Nextstate <= RESULT;
+			end
 		end
 
 		CONVOLUTION : begin
