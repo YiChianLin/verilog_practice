@@ -84,10 +84,10 @@ always @(counter_for_8 or current_pixel) begin
 		
 		1 : begin
 			if (current_pixel < 12'd128) begin
-				image_mem_idx <= current_pixel - (current_pixel & 12'd64) - {current_pixel[5:0] > 6'd1, current_pixel[5:0] == 6'd1};
+				image_mem_idx <= current_pixel - ((current_pixel & 12'd64) + {current_pixel[5:0] > 6'd1, current_pixel[5:0] == 6'd1});
 			end
 			else begin
-				image_mem_idx <= current_pixel - 12'd128 - {current_pixel[5:0] > 6'd1, current_pixel[5:0] == 6'd1};
+				image_mem_idx <= current_pixel - (12'd128 + {current_pixel[5:0] > 6'd1, current_pixel[5:0] == 6'd1});
 			end
 		end
 
@@ -102,10 +102,10 @@ always @(counter_for_8 or current_pixel) begin
 
 		3 : begin
 			if (current_pixel[11:7]) begin
-				image_mem_idx <= current_pixel - 12'd128 + {current_pixel[5:0] < 12'd62, current_pixel[5:0] == 12'd62};
+				image_mem_idx <= current_pixel - 12'd128 + {current_pixel[5:0] < 6'd62, current_pixel[5:0] == 6'd62};
 			end
 			else begin
-				image_mem_idx <= current_pixel - (current_pixel & 12'd64) + {current_pixel[5:0] < 12'd62, current_pixel[5:0] == 12'd62};
+				image_mem_idx <= current_pixel - (current_pixel & 12'd64) + {current_pixel[5:0] < 6'd62, current_pixel[5:0] == 6'd62};
 			end
 		end
 
@@ -147,10 +147,10 @@ always @(counter_for_8 or current_pixel) begin
 
 		8 : begin
 			if (current_pixel > 12'd3967) begin
-				image_mem_idx <= current_pixel + ((current_pixel[6] ^ 1'd1) << 6) + {current_pixel[5:0] < 12'd62, current_pixel[5:0] == 12'd62};
+				image_mem_idx <= current_pixel + ((current_pixel[6] ^ 1'd1) << 6) + {current_pixel[5:0] < 6'd62, current_pixel[5:0] == 6'd62};
 			end
 			else begin
-				image_mem_idx <= current_pixel + 12'd128 + {current_pixel[5:0] < 12'd62, current_pixel[5:0] == 12'd62};
+				image_mem_idx <= current_pixel + 12'd128 + {current_pixel[5:0] < 6'd62, current_pixel[5:0] == 6'd62};
 			end
 		end
 		default: begin image_mem_idx <= current_pixel; end 
@@ -282,7 +282,7 @@ always @(posedge clk) begin
 				// the next pixel of maxpooling block
 				current_pixel <= current_pixel + next_mem_offset[counter_for_4];
 
-				// Add BIAS and RELU -> write in Layer0
+				// RELU -> write in Layer0
 				if (sum_conv & 13'b1_0000_0000_0000) begin
 					cdata_wr <= 13'd0;
 					maxpooling_4_data[counter_for_4] <= 13'd0;
@@ -290,7 +290,7 @@ always @(posedge clk) begin
 					cdata_wr <= sum_conv;
 					maxpooling_4_data[counter_for_4] <= sum_conv;
 				end
-				
+
 				// reset summation
 				sum_conv <= bias;
 
