@@ -28,13 +28,13 @@ localparam WRITE_RELU_LAYER0= 3'd3;
 localparam WRITE_LAYER1 = 3'd4;
 localparam RESULT = 3'd5;
 
-reg [2:0] i;    // for-loop index
+reg [1:0] i;    // for-loop index
 reg [12:0] maxpooling_4_data [3:0];  // the block of maxpooling in 4 numbers
 reg [12:0] sum_conv;				 // convolution summation
 
 // memory idx
 reg [11:0] image_mem_idx;   // max : 4095
-reg [10:0] layer1_mem_idx;  // max : 1023
+reg [11:0] layer1_mem_idx;  // max : 1023
 reg [11:0] current_pixel; 
 
 
@@ -70,10 +70,7 @@ initial begin
 	counter_for_8 <= 4'd0;
 	counter_for_4 <= 2'd0;
 	current_pixel <= 12'd0;
-	layer1_mem_idx <= 11'd0;
-	sum_conv <= 13'd0;  	// convolution summation
-	busy <= 1'd0;  			// need to initialize
-	csel <= 1'd0;
+	layer1_mem_idx <= 12'd0;
 end
 
 // Atrous Convolution
@@ -97,6 +94,7 @@ always @(counter_for_8 or current_pixel) begin
 		2 : begin
 			image_mem_idx <= {current_pixel[11:6] - {current_pixel[11:6] > 6'd1, current_pixel[11:6] == 6'd1}, current_pixel[5:0] + {current_pixel[5:0] < 6'd62, current_pixel[5:0] == 6'd62}};
 		end
+
 		3 : begin
 			image_mem_idx <= {current_pixel[11:6] + {current_pixel[11:6] < 6'd62, current_pixel[11:6] == 6'd62}, current_pixel[5:0] - {current_pixel[5:0] > 6'd1, current_pixel[5:0] == 6'd1}};
 		end
@@ -150,12 +148,15 @@ always @(*) begin
 
 		GET_DATA_FROM_MEM : begin
 			// if calculate all pixel, end the process
-			if (layer1_mem_idx < 11'd1024) begin
-				Nextstate <= CONVOLUTION;
-			end
-			else begin
-				Nextstate <= RESULT;
-			end
+			// if (layer1_mem_idx < 12'd1024) begin
+			// 	Nextstate <= CONVOLUTION;
+			// end
+			// else begin
+			// 	Nextstate <= RESULT;
+			// end
+
+			// not recommend, but it would reduce the total logic element
+			Nextstate <= {layer1_mem_idx[10], 2'b10}; 
 		end
 
 		CONVOLUTION : begin
@@ -170,7 +171,7 @@ always @(*) begin
 
 		WRITE_RELU_LAYER0 : begin
 			// when write into layer 0 four times, do maxpooling and write into layer1 
-			if (counter_for_4 < 3'd3) begin
+			if (counter_for_4 < 2'd3) begin
 				Nextstate <= GET_DATA_FROM_MEM;
 			end
 			else begin
@@ -192,21 +193,15 @@ end
 // Conbination circuit
 always @(posedge clk) begin
 	if (reset) begin
-		// initilize the maxpooling data array
-		for (i = 3'd0; i < 3'd4; i = i + 3'd1) begin
-			maxpooling_4_data[i] <= 13'd0;
-		end	
+		sum_conv <= 13'd0;  	// convolution summation
+		busy <= 1'd0;  			// need to initialize
+		csel <= 1'd0;
 	end
 	else begin
 		case (Currentstate) 
 			CHECK_IMG_RD : begin
-				// When ready pull up the busy signal
-				if (ready) begin
-					busy <= 1'd1;
-				end 
-				else begin
-					busy <= 1'd0;
-				end
+				// When ready, pull up the busy signal
+				busy <= ready;
 			end 
 			
 			GET_DATA_FROM_MEM : begin
@@ -275,7 +270,7 @@ always @(posedge clk) begin
 				cdata_wr <= ((max_data >> 4) + (max_data[3:0] != 4'd0)) << 4;
 
 				// Layer 1 next memory
-				layer1_mem_idx <= layer1_mem_idx + 11'd1; 
+				layer1_mem_idx <= layer1_mem_idx + 12'd1; 
 
 				// change the row of maxpooling block
 				current_pixel <= current_pixel + ((layer1_mem_idx[4:0] == 5'd31) << 6);
