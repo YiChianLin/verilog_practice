@@ -53,13 +53,14 @@ wire [12:0] cmp1, cmp2, max_data;
 initial begin
 	filter_shift[0] <= 3'd0; // 1      1/1  2^(0)
 	filter_shift[1] <= 3'd4; // 0.0625 1/16 2^(-4)
-	filter_shift[2] <= 3'd3; // 0.125  1/8  2^(-3)
+	filter_shift[2] <= 3'd4;
 	filter_shift[3] <= 3'd4;
-	filter_shift[4] <= 3'd2; // 0.25   1/4  2^(-2)
+	filter_shift[4] <= 3'd4;
 	filter_shift[5] <= 3'd2;
-	filter_shift[6] <= 3'd4;
-	filter_shift[7] <= 3'd3;
-	filter_shift[8] <= 3'd4;
+	filter_shift[6] <= 3'd2; // 0.25   1/4  2^(-2)
+	filter_shift[7] <= 3'd3; // 0.125  1/8  2^(-3)
+	filter_shift[8] <= 3'd3;
+
 	bias <= 13'h1FF4;        // -0.75
 
 	next_mem_offset[0] <=  12'd1;
@@ -76,6 +77,13 @@ initial begin
 end
 
 // Atrous Convolution
+/*  kernel filter number
+ *	
+ * 	orignal:		improve:
+ *  [1]	[2]	[3]		[1]	[7]	[2]
+ *	[4]	[0]	[5]  => [6]	[0]	[5]
+ *	[6]	[7]	[8]		[3]	[8]	[4]
+ */
 always @(counter_for_8 or current_pixel) begin
 	case (counter_for_8)
 		0 : begin
@@ -83,77 +91,37 @@ always @(counter_for_8 or current_pixel) begin
 		end
 		
 		1 : begin
-			if (current_pixel < 12'd128) begin
-				image_mem_idx <= current_pixel - ((current_pixel & 12'd64) + {current_pixel[5:0] > 6'd1, current_pixel[5:0] == 6'd1});
-			end
-			else begin
-				image_mem_idx <= current_pixel - (12'd128 + {current_pixel[5:0] > 6'd1, current_pixel[5:0] == 6'd1});
-			end
+			image_mem_idx <= {current_pixel[11:6] - {current_pixel[11:6] > 6'd1, current_pixel[11:6] == 6'd1}, current_pixel[5:0] - {current_pixel[5:0] > 6'd1, current_pixel[5:0] == 6'd1}};
 		end
 
 		2 : begin
-			if (current_pixel < 12'd128) begin
-				image_mem_idx <= current_pixel - (current_pixel[6] << 6);
-			end
-			else begin
-				image_mem_idx <= current_pixel - 12'd128;
-			end
+			image_mem_idx <= {current_pixel[11:6] - {current_pixel[11:6] > 6'd1, current_pixel[11:6] == 6'd1}, current_pixel[5:0] + {current_pixel[5:0] < 6'd62, current_pixel[5:0] == 6'd62}};
 		end
-
 		3 : begin
-			if (current_pixel[11:7]) begin
-				image_mem_idx <= current_pixel - 12'd128 + {current_pixel[5:0] < 6'd62, current_pixel[5:0] == 6'd62};
-			end
-			else begin
-				image_mem_idx <= current_pixel - (current_pixel & 12'd64) + {current_pixel[5:0] < 6'd62, current_pixel[5:0] == 6'd62};
-			end
+			image_mem_idx <= {current_pixel[11:6] + {current_pixel[11:6] < 6'd62, current_pixel[11:6] == 6'd62}, current_pixel[5:0] - {current_pixel[5:0] > 6'd1, current_pixel[5:0] == 6'd1}};
 		end
 
 		4 : begin
-			if (current_pixel[5:0] < 6'd2) begin
-				image_mem_idx <= current_pixel & 12'b1111_1111_1110; // check the odd/even number				
-			end
-			else begin
-				image_mem_idx <= current_pixel - 12'd2;
-			end
+			image_mem_idx <= {current_pixel[11:6] + {current_pixel[11:6] < 6'd62, current_pixel[11:6] == 6'd62}, current_pixel[5:0] + {current_pixel[5:0] < 6'd62, current_pixel[5:0] == 6'd62}};
 		end
-		
+
 		5 : begin
-			if (current_pixel[5:0] > 6'd61) begin
-				image_mem_idx <= current_pixel + (current_pixel[0] ^ 1'd1);
-			end
-			else begin
-				image_mem_idx <= current_pixel + 12'd2;
-			end
+			image_mem_idx <= {current_pixel[11:6], current_pixel[5:0] + {current_pixel[5:0] < 6'd62, current_pixel[5:0] == 6'd62}};
 		end
 
 		6 : begin
-			if (current_pixel > 12'd3967) begin
-				image_mem_idx <= current_pixel + ((current_pixel[6] ^ 1'd1) << 6) - {current_pixel[5:0] > 6'd1, current_pixel[5:0] == 6'd1};
-			end
-			else begin
-				image_mem_idx <= current_pixel + 12'd128 - {current_pixel[5:0] > 6'd1, current_pixel[5:0] == 6'd1};
-			end
+			image_mem_idx <= {current_pixel[11:6], current_pixel[5:0] - {current_pixel[5:0] > 6'd1, current_pixel[5:0] == 6'd1}};
 		end
 
 		7 : begin
-			if (current_pixel > 12'd3967) begin
-				image_mem_idx <= current_pixel + ((current_pixel[6] ^ 1'd1) << 6);
-			end
-			else begin
-				image_mem_idx <= current_pixel + 12'd128;
-			end
+			image_mem_idx <= {current_pixel[11:6] - {current_pixel[11:6] > 6'd1, current_pixel[11:6] == 6'd1}, current_pixel[5:0]};
 		end
 
 		8 : begin
-			if (current_pixel > 12'd3967) begin
-				image_mem_idx <= current_pixel + ((current_pixel[6] ^ 1'd1) << 6) + {current_pixel[5:0] < 6'd62, current_pixel[5:0] == 6'd62};
-			end
-			else begin
-				image_mem_idx <= current_pixel + 12'd128 + {current_pixel[5:0] < 6'd62, current_pixel[5:0] == 6'd62};
-			end
+			image_mem_idx <= {current_pixel[11:6] + {current_pixel[11:6] < 6'd62, current_pixel[11:6] == 6'd62}, current_pixel[5:0]};
 		end
-		default: begin image_mem_idx <= current_pixel; end 
+
+		default: begin image_mem_idx <= current_pixel; end // fixed latch problem
 	endcase
 end
 
