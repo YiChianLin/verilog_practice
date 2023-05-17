@@ -283,16 +283,16 @@ always @(posedge clk) begin
 				current_pixel <= current_pixel + next_mem_offset[counter_for_4];
 
 				// Add BIAS and RELU -> write in Layer0
-				if ((sum_conv + bias) & 13'b1_0000_0000_0000) begin
+				if (sum_conv & 13'b1_0000_0000_0000) begin
 					cdata_wr <= 13'd0;
 					maxpooling_4_data[counter_for_4] <= 13'd0;
 				end else begin
-					cdata_wr <= sum_conv + bias;
-					maxpooling_4_data[counter_for_4] <= sum_conv + bias;
+					cdata_wr <= sum_conv;
+					maxpooling_4_data[counter_for_4] <= sum_conv;
 				end
 				
 				// reset summation
-				sum_conv <= 13'd0;
+				sum_conv <= bias;
 
 				// the counter of maxpooling block
 				counter_for_4 <= counter_for_4 + 2'd1;
@@ -304,12 +304,7 @@ always @(posedge clk) begin
 				caddr_wr <= layer1_mem_idx; // Layer0 addr
 
 				// Round up
-				if (max_data & 13'b0_0000_0000_1111) begin
-					cdata_wr <= (max_data & 13'b1_1111_1111_0000) + 13'b0_000_0001_0000;
-				end
-				else begin
-					cdata_wr <= max_data;
-				end
+				cdata_wr <= ((max_data >> 4) + (max_data[3:0] != 4'd0)) << 4;
 
 				// Layer 1 next memory
 				layer1_mem_idx <= layer1_mem_idx + 11'd1; 
