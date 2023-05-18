@@ -28,12 +28,12 @@ localparam WRITE_RELU_LAYER0= 3'd3;
 localparam WRITE_LAYER1 = 3'd4;
 localparam RESULT = 3'd5;
 
-reg [12:0] maxpooling_4_data [3:0];  // the block of maxpooling in 4 numbers
-reg [12:0] sum_conv;				 // convolution summation
+// convolution summation
+reg [12:0] sum_conv;				 
 
 // memory idx
 reg [11:0] image_mem_idx;   // max : 4095
-reg [11:0] layer1_mem_idx;  // max : 1023
+reg [10:0] layer1_mem_idx;  // max : 1023
 reg [11:0] current_pixel; 
 
 // counter idx
@@ -46,7 +46,7 @@ reg [11:0] next_mem_offset[3:0];
 reg [12:0] bias;
 
 // maxpooling tmp reg
-wire [12:0] cmp1, cmp2, max_data;
+reg [12:0] max_data;
 
 initial begin
 	filter_shift[0] <= 3'd0; // 1      1/1  2^(0)
@@ -68,7 +68,8 @@ initial begin
 	counter_for_8 <= 4'd0;
 	counter_for_4 <= 2'd0;
 	current_pixel <= 12'd0;
-	layer1_mem_idx <= 12'd0;
+	layer1_mem_idx <= 11'd0;
+	max_data <= 13'd0;
 end
 
 // Atrous Convolution
@@ -146,7 +147,7 @@ always @(*) begin
 
 		GET_DATA_FROM_MEM : begin
 			// if calculate all pixel, end the process
-			if (layer1_mem_idx < 12'd1024) begin
+			if (layer1_mem_idx < 11'd1024) begin
 				Nextstate <= CONVOLUTION;
 			end
 			else begin
@@ -243,10 +244,12 @@ always @(posedge clk) begin
 				// RELU -> write in Layer0
 				if (sum_conv & 13'b1_0000_0000_0000) begin
 					cdata_wr <= 13'd0;
-					maxpooling_4_data[counter_for_4] <= 13'd0;
 				end else begin
 					cdata_wr <= sum_conv;
-					maxpooling_4_data[counter_for_4] <= sum_conv;
+					// if the data > 0 and bigger than current max data, updata the neW value 
+					if (max_data < sum_conv) begin
+						max_data <= sum_conv;
+					end 
 				end
 
 				// reset summation
@@ -263,9 +266,11 @@ always @(posedge clk) begin
 
 				// Round up
 				cdata_wr <= ((max_data >> 4) + (max_data[3:0] != 4'd0)) << 4;
+				// reset the max data
+				max_data <= 13'd0;
 
 				// Layer 1 next memory
-				layer1_mem_idx <= layer1_mem_idx + 12'd1; 
+				layer1_mem_idx <= layer1_mem_idx + 11'd1; 
 
 				// change the row of maxpooling block
 				current_pixel <= current_pixel + ((layer1_mem_idx[4:0] == 5'd31) << 6);
@@ -282,10 +287,5 @@ always @(posedge clk) begin
 		endcase
 	end
 end
-
-// combination circuit of maxpooling (ref by HW1 four numbers input maximum)
-assign cmp1 = maxpooling_4_data[0] < maxpooling_4_data[1] ? maxpooling_4_data[1] : maxpooling_4_data[0];
-assign cmp2 = maxpooling_4_data[2] < maxpooling_4_data[3] ? maxpooling_4_data[3] : maxpooling_4_data[2];
-assign max_data = cmp1 < cmp2 ? cmp2 : cmp1;
 
 endmodule
