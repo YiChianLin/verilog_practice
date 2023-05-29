@@ -1,6 +1,6 @@
 `timescale 1ns/10ps
 `define End_CYCLE 1000000
-`define cycle 12.0
+`define cycle 40.0
 
 `define PAT "./mosaic/test1.dat"  
 `define OUT_F "./test1.raw"
@@ -50,6 +50,11 @@ initial begin
 	rdata_g = 'hx;
 	rdata_b = 'hx;
 	flag = 0;
+	for(i = 0; i < IMG_SIZE; i = i + 1) begin
+		MEM_R[i] = 0;
+		MEM_G[i] = 0;
+		MEM_B[i] = 0;
+	end
 end
 
 always #(`cycle/2) clk = ~clk;
@@ -88,24 +93,15 @@ always @ (negedge clk or posedge reset) begin // send mosaic image
 	end
 end
 
-always @ (negedge clk or posedge reset) begin // write memory
-	if(reset) begin
-		for(i = 0; i < IMG_SIZE; i = i + 1) begin
-			MEM_R[i] <= 0;
-			MEM_G[i] <= 0;
-			MEM_B[i] <= 0;
-		end
+always @ (negedge clk) begin // write memory
+	if(wr_r) begin
+		MEM_R[addr_r] <= wdata_r;
 	end
-	else begin
-		if(wr_r) begin
-			MEM_R[addr_r] <= wdata_r;
-		end
-		if(wr_g) begin
-			MEM_G[addr_g] <= wdata_g;
-		end
-		if(wr_b) begin
-			MEM_B[addr_b] <= wdata_b;
-		end
+	if(wr_g) begin
+		MEM_G[addr_g] <= wdata_g;
+	end
+	if(wr_b) begin
+		MEM_B[addr_b] <= wdata_b;
 	end
 end
 
