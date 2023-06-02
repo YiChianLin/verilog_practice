@@ -3,19 +3,19 @@ input clk;
 input reset;
 input in_en;
 input [7:0] data_in;
-output wr_r;
-output [13:0] addr_r;
-output [7:0] wdata_r;
+output reg wr_r;
+output reg [13:0] addr_r;
+output reg [7:0] wdata_r;
 input [7:0] rdata_r;
-output wr_g;
-output [13:0] addr_g;
-output [7:0] wdata_g;
+output reg wr_g;
+output reg [13:0] addr_g;
+output reg [7:0] wdata_g;
 input [7:0] rdata_g;
-output wr_b;
-output [13:0] addr_b;
-output [7:0] wdata_b;
+output reg wr_b;
+output reg [13:0] addr_b;
+output reg [7:0] wdata_b;
 input [7:0] rdata_b;
-output done;
+output reg done;
 
 // state define
 reg [2:0] Currentstate, Nextstate;
@@ -24,7 +24,8 @@ localparam CHECK_CENTER = 3'd1;
 localparam RED_BLUE_MODE = 3'd2;
 localparam GREEN_MODE= 3'd3;
 localparam WRITE_IN_MEM = 3'd4;
-localparam DONE = 3'd5;
+localparam CHECK_NEXT_PIXEL = 3'd5;
+localparam DONE = 3'd6;
 
 reg [13:0] center_pixel;
 reg [2:0] counter_for_2;
@@ -83,13 +84,16 @@ always @(*) begin
                 Nextstate <= DONE;
             end
             else begin
-                if (center_pixel[7] == center_pixel[0]) begin
-                    Nextstate <= GREEN_MODE;
-                end
-                else begin
-                    Nextstate <= RED_BLUE_MODE;
-                end
-                
+                Nextstate <= CHECK_NEXT_PIXEL;
+            end
+        end
+
+        CHECK_NEXT_PIXEL : begin
+            if (center_pixel[7] == center_pixel[0]) begin
+                Nextstate <= GREEN_MODE;
+            end
+            else begin
+                Nextstate <= RED_BLUE_MODE;
             end
         end
 
@@ -111,6 +115,7 @@ always @(posedge clk) begin
         center_pixel <= 0;
         sum1 <= 0; // calculate summation
         sum2 <= 0; // calculate summation
+        done <= 0;
 	end
 	else begin
         case (Currentstate)
@@ -146,6 +151,9 @@ always @(posedge clk) begin
             end
 
             GREEN_MODE : begin
+                // next pixel
+                counter_for_2 <= counter_for_2 + 1;   
+
                 // 依照 counter 儲存 tmp 值
                 case (counter_for_2)
                     0 : begin
@@ -188,11 +196,12 @@ always @(posedge clk) begin
                         // do nothing
                     end
                 endcase
-                // next pixel
-                counter_for_2 <= counter_for_2 + 1;                
+                             
             end
 
             RED_BLUE_MODE : begin
+                // next pixel
+                counter_for_4 <= counter_for_4 + 1;
                 case (counter_for_4)
                     0 : begin
                         // center data (green)
@@ -204,70 +213,70 @@ always @(posedge clk) begin
 
                         // next pixel
                         addr_g <= {row_minus1, center_pixel[6:0]};
-                        if ({center_pixel[7], center_pixel[0]} == 1) begin
+                        if ({center_pixel[7], center_pixel[0]} == 2'd1) begin
                             // if center red
-                            addr_r <= {row_minus1, col_minus1};
+                            addr_b <= {row_minus1, col_minus1};
                         end 
                         else begin
                             // if center blue
-                            addr_b <= {row_minus1, col_minus1};
+                            addr_r <= {row_minus1, col_minus1};
                         end
                     end
                     1 : begin
                         sum1 <= rdata_g;
                         
                         // next pixel
-                        addr_g <= {center_pixel[13:7] : col_minus1};
-                        if ({center_pixel[7], center_pixel[0]} == 1) begin
+                        addr_g <= {center_pixel[13:7], col_minus1};
+                        if ({center_pixel[7], center_pixel[0]} == 2'd1) begin
                             // if center red
-                            addr_r <= {row_minus1, col_add1};
-                            sum2 <= rdata_r;
+                            addr_b <= {row_minus1, col_add1};
+                            sum2 <= rdata_b;
                         end 
                         else begin
                             // if center blue
-                            addr_b <= {row_minus1, col_add1};
-                            sum2 <= rdata_b;
+                            addr_r <= {row_minus1, col_add1};
+                            sum2 <= rdata_r;
                         end
                     end
                     2 : begin
                         sum1 <= sum1 + rdata_g;
                         
                         // next pixel
-                        addr_g <= {center_pixel[13:7] : col_add1};
-                        if ({center_pixel[7], center_pixel[0]} == 1) begin
+                        addr_g <= {center_pixel[13:7], col_add1};
+                        if ({center_pixel[7], center_pixel[0]} == 2'd1) begin
                             // if center red
-                            addr_r <= {row_add1, col_minus1};
-                            sum2 <= sum2 + rdata_r;
+                            addr_b <= {row_add1, col_minus1};
+                            sum2 <= sum2 + rdata_b;
                         end 
                         else begin
                             // if center blue
-                            addr_b <= {row_add1, col_minus1};
-                            sum2 <= sum2 + rdata_b;
+                            addr_r <= {row_add1, col_minus1};
+                            sum2 <= sum2 + rdata_r;
                         end
                     end
                     3 : begin
-                        sum1 <= rdata_g; 
+                        sum1 <= sum1 + rdata_g; 
                         addr_g <= {row_add1, center_pixel[6:0]};
-                        if ({center_pixel[7], center_pixel[0]} == 1) begin
+                        if ({center_pixel[7], center_pixel[0]} == 2'd1) begin
                             // if center red
-                            addr_r <= {row_add1, col_add1};
-                            sum2 <= sum2 + rdata_r;
+                            addr_b <= {row_add1, col_add1};
+                            sum2 <= sum2 + rdata_b;
                         end 
                         else begin
                             // if center blue
-                            addr_b <= {row_add1, col_add1};
-                            sum2 <= sum2 + rdata_b;
+                            addr_r <= {row_add1, col_add1};
+                            sum2 <= sum2 + rdata_r;
                         end
                     end
                     4 : begin
                         sum1 <= (sum1 + rdata_g) >> 2;
-                        if ({center_pixel[7], center_pixel[0]} == 1) begin
+                        if ({center_pixel[7], center_pixel[0]} == 2'd1) begin
                             // if center red
-                            sum2 <= (sum2 + rdata_r) >> 2;
+                            sum2 <= (sum2 + rdata_b) >> 2;
                         end 
                         else begin
                             // if center blue
-                            sum2 <= (sum2 + rdata_b) >> 2;
+                            sum2 <= (sum2 + rdata_r) >> 2;
                         end
                     end
 
@@ -277,8 +286,7 @@ always @(posedge clk) begin
                 endcase
             end
 
-            WRITE_IN_MEM : begin
-                center_pixel <= center_pixel + 1;
+            WRITE_IN_MEM : begin   
                 case ({center_pixel[7], center_pixel[0]})
                     0, 3 : begin
                         wr_r <= 1'd1;
@@ -305,6 +313,18 @@ always @(posedge clk) begin
                         wdata_r <= sum2[7:0];
                     end
                 endcase
+                counter_for_4 <= 0;
+                counter_for_2 <= 0;
+                sum1 <= 0;
+                sum2 <= 0;
+                center_pixel <= center_pixel + 1;
+            end
+
+            CHECK_NEXT_PIXEL : begin
+                // do nothing
+                wr_r <= 1'd0;
+                wr_g <= 1'd0;
+                wr_b <= 1'd0;
             end
 
             DONE : begin
