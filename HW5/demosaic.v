@@ -20,12 +20,11 @@ output reg done;
 // state define
 reg [2:0] Currentstate, Nextstate;
 localparam CHECK_IMG_RD = 3'd0;
-localparam CHECK_CENTER = 3'd1;
-localparam RED_BLUE_MODE = 3'd2;
-localparam GREEN_MODE= 3'd3;
-localparam WRITE_IN_MEM = 3'd4;
-localparam CHECK_NEXT_PIXEL = 3'd5;
-localparam DONE = 3'd6;
+localparam RED_BLUE_MODE = 3'd1;
+localparam GREEN_MODE= 3'd2;
+localparam WRITE_IN_MEM = 3'd3;
+localparam CHECK_NEXT_PIXEL = 3'd4;
+localparam DONE = 3'd5;
 
 reg [13:0] center_pixel;
 reg [2:0] counter_for_2;
@@ -62,6 +61,7 @@ always @(*) begin
         end
 
         GREEN_MODE : begin
+            // read data 2 times
             if (counter_for_2 == 2) begin
                 Nextstate <= WRITE_IN_MEM;
             end 
@@ -71,6 +71,7 @@ always @(*) begin
         end
 
         RED_BLUE_MODE : begin
+            // read data 4 times
             if (counter_for_4 == 4) begin
                 Nextstate <= WRITE_IN_MEM;
             end 
@@ -89,6 +90,7 @@ always @(*) begin
         end
 
         CHECK_NEXT_PIXEL : begin
+            // check the center pixel
             if (center_pixel[7] == center_pixel[0]) begin
                 Nextstate <= GREEN_MODE;
             end
@@ -154,7 +156,6 @@ always @(posedge clk) begin
                 // next pixel
                 counter_for_2 <= counter_for_2 + 1;   
 
-                // 依照 counter 儲存 tmp 值
                 case (counter_for_2)
                     0 : begin
                         // center data (green)
@@ -321,7 +322,7 @@ always @(posedge clk) begin
             end
 
             CHECK_NEXT_PIXEL : begin
-                // do nothing
+                // turn to read data mode
                 wr_r <= 1'd0;
                 wr_g <= 1'd0;
                 wr_b <= 1'd0;
